@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #1a1a2e; color: #fff; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .chat-container { width: 90%; max-width: 600px; background: #16213e; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h1 { text-align: center; margin-bottom: 20px; color: #e94560; }
+        #chat-box { height: 400px; overflow-y: auto; border: 1px solid #0f3460; border-radius: 10px; padding: 15px; margin-bottom: 15px; background: #0f3460; }
+        .message { margin: 10px 0; padding: 10px 15px; border-radius: 10px; max-width: 80%; }
+        .user { background: #e94560; margin-left: auto; text-align: right; }
+        .bot { background: #533483; }
+        .loading { color: #aaa; font-style: italic; }
+        .input-area { display: flex; gap: 10px; }
+        #user-input { flex: 1; padding: 12px; border: none; border-radius: 8px; background: #0f3460; color: #fff; font-size: 16px; }
+        #send-btn { padding: 12px 20px; background: #e94560; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        #send-btn:hover { background: #c73652; }
+        #send-btn:disabled { background: #555; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>?? AI Chatbot</h1>
+        <div id="chat-box">
+            <div class="message bot">Hello! How can I help you today?</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Type a message..." />
+            <button id="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+    <script>
+        const API_URL = 'https://ai-chatbot-production-a994.up.railway.app';
+        let session_id = null;
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
+            const message = input.value.trim();
+            if (!message) return;
+
+            appendMessage(message, 'user');
+            input.value = '';
+            sendBtn.disabled = true;
+
+            const loading = appendMessage('Typing...', 'bot loading');
+
+            try {
+                const res = await fetch(`${API_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, session_id })
+                });
+                const data = await res.json();
+                session_id = data.session_id;
+                loading.remove();
+                appendMessage(data.response, 'bot');
+            } catch (err) {
+                loading.remove();
+                appendMessage('Error: Could not connect to server.', 'bot');
+            }
+            sendBtn.disabled = false;
+        }
+
+        function appendMessage(text, type) {
+            const chatBox = document.getElementById('chat-box');
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = text;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return div;
+        }
+
+        document.getElementById('user-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
