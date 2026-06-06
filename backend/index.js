@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
+const Groq = require('groq-sdk');
 
 dotenv.config();
 
@@ -14,6 +15,8 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 pool.query(`
   CREATE TABLE IF NOT EXISTS chat_history (
@@ -32,12 +35,24 @@ app.get('/health', (req, res) => {
 app.post('/chat', async (req, res) => {
   const { message, session_id } = req.body;
   const sessionId = session_id || uuidv4();
-  const botResponse = `You said: ${message}`;
-  await pool.query(
-    'INSERT INTO chat_history (session_id, user_message, bot_response) VALUES ($1, $2, $3)',
-    [sessionId, message, botResponse]
-  );
-  res.json({ response: botResponse, session_id: sessionId });
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: 'llama3-8b-8192',
+      messages: [{ role: 'user', content: message }]
+    });
+    const botResponse = completion.choices[0].message.content;
+
+    await pool.query(
+      'INSERT INTO chat_history (session_id, user_message, bot_response) VALUES ($1, $2, $3)',
+      [sessionId, message, botResponse]
+    );
+
+    res.json({ response: botResponse, session_id: sessionId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'AI service error' });
+  }
 });
 
 app.get('/history', async (req, res) => {
